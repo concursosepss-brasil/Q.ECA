@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulado - Estatuto da Criança e do Adolescente (50 Questões)</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d2a52">
+<link rel="apple-touch-icon" href="icon-192.png">
+<!-- Firebase (Firestore + Authentication) -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    min-height: 100vh;
+    color: #222;
+    padding: 20px;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.25);
+    overflow: hidden;
+  }
+  header {
+    background: #0d2a52;
+    color: #fff;
+    padding: 22px 28px;
+  }
+  header h1 { font-size: 1.4rem; margin-bottom: 4px; }
+  header p { font-size: .9rem; opacity: .85; }
+  .progress-wrap {
+    background: #e5e9f0;
+    height: 10px;
+    border-radius: 5px;
+    margin: 18px 28px 0;
+    overflow: hidden;
+  }
+  .progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #28a745, #20c997);
+    transition: width .4s ease;
+  }
+  .info-bar {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 28px;
+    font-size: .9rem;
+    color: #555;
+    border-bottom: 1px solid #eee;
+  }
+  main { padding: 28px; }
+  .question-card { display: none; }
+  .question-card.active { display: block; animation: fade .3s ease; }
+  @keyframes fade { from {opacity:0; transform:translateY(8px);} to {opacity:1; transform:none;} }
+  .q-number {
+    display: inline-block;
+    background: #0d2a52;
+    color: #fff;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: .85rem;
+    margin-bottom: 12px;
+  }
+  .q-context {
+    background: #f4f7fb;
+    border-left: 4px solid #2a5298;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+    font-size: .95rem;
+    line-height: 1.7;
+    color: #333;
+    text-align: justify;
+  }
+  .q-context p { margin-bottom: 12px; }
+  .q-context p:last-child { margin-bottom: 0; }
+  .q-text {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 18px;
+    line-height: 1.6;
+  }
+  .options { list-style: none; }
+  .options li {
+    background: #fafbfd;
+    border: 2px solid #e1e6ef;
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .options li:hover { border-color: #2a5298; background: #eef3fb; }
+  .options li input { margin-top: 4px; cursor: pointer; accent-color: #2a5298; }
+  .options li label { cursor: pointer; flex: 1; line-height: 1.5; }
+  .options li.selected { border-color: #2a5298; background: #e0ebff; }
+  .options li.correct { border-color: #28a745; background: #e6f7ec; }
+  .options li.wrong { border-color: #dc3545; background: #fdecea; }
+  .feedback {
+    margin-top: 16px;
+    padding: 16px;
+    border-radius: 8px;
+    font-size: .95rem;
+    line-height: 1.6;
+    display: none;
+  }
+  .feedback.show { display: block; }
+  .feedback.ok { background: #e6f7ec; color: #155724; border-left: 4px solid #28a745; }
+  .feedback.no { background: #fdecea; color: #721c24; border-left: 4px solid #dc3545; }
+  .nav-buttons {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 24px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  button {
+    background: #0d2a52;
+    color: #fff;
+    border: none;
+    padding: 12px 22px;
+    border-radius: 8px;
+    font-size: .95rem;
+    cursor: pointer;
+    transition: background .2s;
+    font-weight: 500;
+  }
+  button:hover:not(:disabled) { background: #2a5298; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.secondary { background: #6c757d; }
+  button.secondary:hover:not(:disabled) { background: #545b62; }
+  button.success { background: #28a745; }
+  button.success:hover:not(:disabled) { background: #218838; }
+  .start-screen, .result-screen { text-align: center; padding: 20px 10px; }
+  .start-screen h2 { color: #0d2a52; margin-bottom: 16px; font-size: 1.6rem; }
+  .start-screen p { margin-bottom: 14px; color: #555; line-height: 1.6; }
+  .start-screen ul { text-align: left; max-width: 500px; margin: 18px auto; color: #444; }
+  .start-screen li { margin-bottom: 8px; }
+  .result-screen h2 { color: #0d2a52; margin-bottom: 10px; }
+  .score-big { font-size: 3rem; font-weight: bold; color: #2a5298; margin: 18px 0; }
+  .score-bar {
+    width: 80%; max-width: 400px; height: 14px;
+    background: #e5e9f0; border-radius: 7px; margin: 10px auto 20px; overflow: hidden;
+  }
+  .score-fill { height: 100%; background: linear-gradient(90deg, #28a745, #20c997); }
+  .review-list { text-align: left; margin: 24px 0; }
+  .review-item {
+    background: #f8f9fa; border-left: 4px solid #ccc;
+    padding: 12px 14px; margin-bottom: 8px; border-radius: 6px; font-size: .9rem;
+  }
+  .review-item.ok { border-color: #28a745; }
+  .review-item.no { border-color: #dc3545; }
+  .review-item small { color: #666; display: block; margin-top: 4px; }
+  footer { text-align: center; padding: 14px; background: #f4f7fb; font-size: .8rem; color: #666; }
+  .gate-screen { text-align: center; padding: 30px 10px; }
+  .gate-screen h2 { color: #0d2a52; margin-bottom: 14px; font-size: 1.5rem; }
+  .gate-screen p { color: #555; line-height: 1.6; margin-bottom: 18px; max-width: 460px; margin-left: auto; margin-right: auto; }
+  .form-field { max-width: 380px; margin: 0 auto 16px; text-align: left; }
+  .form-field label { display: block; font-size: .85rem; color: #444; margin-bottom: 6px; font-weight: 600; }
+  .form-field input {
+    width: 100%; padding: 12px 14px; border: 2px solid #e1e6ef; border-radius: 8px;
+    font-size: 1rem; transition: border-color .2s;
+  }
+  .form-field input:focus { outline: none; border-color: #2a5298; }
+  .status-badge {
+    display: inline-block; padding: 6px 16px; border-radius: 20px; font-size: .9rem;
+    font-weight: 600; margin-bottom: 16px;
+  }
+  .status-badge.pending { background: #fff3cd; color: #856404; }
+  .status-badge.rejected { background: #fdecea; color: #721c24; }
+  .status-badge.approved { background: #e6f7ec; color: #155724; }
+  .admin-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
+  .admin-table th, .admin-table td { padding: 10px 12px; border-bottom: 1px solid #eee; text-align: left; }
+  .admin-table th { background: #f4f7fb; color: #0d2a52; }
+  .admin-actions button { padding: 6px 12px; font-size: .82rem; margin-right: 6px; }
+  .admin-empty { color: #888; padding: 16px 0; font-style: italic; }
+  footer a { color: #2a5298; text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+  .error-msg { color: #dc3545; font-size: .88rem; margin-top: -8px; margin-bottom: 14px; display: none; }
+  .error-msg.show { display: block; }
+  @media (max-width: 600px) {
+    header h1 { font-size: 1.15rem; }
+    main { padding: 18px; }
+    .score-big { font-size: 2.2rem; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>⚖️ Simulado — Estatuto da Criança e do Adolescente</h1>
+    <p>50 questões contextualizadas • Múltipla escolha (A–E)</p>
+  </header>
+  <div class="progress-wrap"><div class="progress-bar" id="progressBar"></div></div>
+  <div class="info-bar">
+    <span id="infoLeft">Aguardando início</span>
+    <span id="infoRight">50 questões</span>
+  </div>
+  <main id="main"></main>
+  <footer>Simulado educacional • Baseado na Lei 8.069/1990 (ECA) e suas alterações.
+    <br><a href="#" id="adminLink" onclick="openAdminLogin(); return false;">Área do administrador</a>
+  </footer>
+</div>
+
+<script>
+const Q=[
+{c:"Maria, conselheira tutelar recém-empossada no município de Boa Vista do Norte, foi convidada a ministrar uma palestra em uma escola municipal sobre os fundamentos do Estatuto da Criança e do Adolescente (Lei 8.069/1990). Durante o encontro, um pai questionou por que o filho de 13 anos, apreendido em flagrante por um pequeno furto, não foi tratado da mesma forma que um adulto seria em situação semelhante, e por que a lei separa 'criança' de 'adolescente' para diversos fins, inclusive para a aplicação de medidas. Maria precisou então explicar, com base no texto legal, o critério objetivo utilizado pelo Estatuto para essa distinção etária, que é determinante para saber, por exemplo, se cabe medida de proteção ou medida socioeducativa.",t:"Segundo o ECA, qual é a classificação etária correta?",o:["Criança é a pessoa até 14 anos incompletos, e adolescente, entre 14 e 21 anos","Criança é a pessoa até 12 anos completos, e adolescente, entre 13 e 17 anos","Criança é a pessoa até 11 anos incompletos, e adolescente, entre 11 e 18 anos","Criança é a pessoa até 12 anos incompletos, e adolescente, entre 12 e 18 anos","Criança é a pessoa de até 10 anos incompletos, e adolescente, entre 10 e 16 anos"],a:3,e:"Art. 2º do ECA: considera-se criança a pessoa até 12 anos de idade incompletos, e adolescente aquela entre 12 e 18 anos de idade."},
+{c:"Em uma audiência pública promovida pela Comissão de Direitos Humanos da Câmara Municipal, um promotor de Justiça da Infância e Juventude foi convidado a discorrer sobre a evolução histórica da legislação brasileira voltada a crianças e adolescentes. Ele explicou que, antes de 1990, vigorava o Código de Menores, fundado na chamada 'doutrina da situação irregular', segundo a qual o Estado só intervinha quando a criança ou o adolescente já estava em situação de risco ou praticava ato infracional, sendo tratado quase como objeto de tutela estatal, e não como sujeito de direitos. Com a promulgação do ECA, em substituição a esse modelo, todo o sistema de proteção passou a se orientar por um novo paradigma, expressamente mencionado logo no art. 1º da lei, que reconhece crianças e adolescentes como sujeitos de direitos em condição peculiar de desenvolvimento.",t:"Esse fundamento, expressamente citado no art. 1º do ECA, é conhecido como:",o:["Doutrina da proteção integral","Princípio da subsidiariedade familiar","Doutrina da situação irregular","Princípio da reserva legal","Doutrina do melhor esforço"],a:0,e:"Art. 1º do ECA: 'Esta Lei dispõe sobre a proteção integral à criança e ao adolescente', substituindo a antiga doutrina da situação irregular do Código de Menores de 1979."},
+{c:"João, de 14 anos, mora em situação de rua há alguns meses após conflitos familiares. Acompanhado por uma educadora social de um serviço de abordagem municipal, ele se dirigiu a uma escola pública para tentar se matricular e retomar os estudos. A secretária da escola, contudo, informou que a matrícula não poderia ser efetivada naquele momento porque João não possuía certidão de nascimento, histórico escolar nem comprovante de residência, documentos que, segundo ela, seriam 'pré-requisitos obrigatórios' antes de qualquer atendimento, cabendo à família (inexistente, no caso) regularizar a situação. A educadora social, então, contestou a recusa, citando o princípio constitucional e estatutário da prioridade absoluta.",t:"Diante da garantia de prioridade absoluta prevista no art. 4º do ECA, essa negativa é:",o:["Irregular apenas se o adolescente tiver menos de 12 anos","Irregular, pois a criança e o adolescente têm precedência de atendimento nos serviços públicos, com absoluta prioridade","Correta, desde que a escola comunique o Conselho Tutelar em até 30 dias","Correta, pois cabe à família regularizar a documentação antes de qualquer atendimento","Correta, pois a documentação é sempre pré-requisito para matrícula"],a:1,e:"Art. 4º, parágrafo único, 'b', do ECA garante precedência de atendimento nos serviços públicos ou de relevância pública, como parte da prioridade absoluta."},
+{c:"Uma criança de 6 anos deu entrada no pronto-socorro de um hospital da rede pública apresentando febre alta e forte dor abdominal, quadro que exigia avaliação médica imediata. O setor administrativo do hospital, no entanto, reteve o atendimento por cerca de quarenta minutos, exigindo que os pais primeiro assinassem um termo de responsabilidade financeira e apresentassem comprovante de vínculo com o plano de saúde da família, sob pena de a criança não ser encaminhada ao médico plantonista. Um assistente social presente no local registrou o episódio e formalizou representação junto ao Ministério Público, apontando possível violação a direito fundamental garantido pelo Estatuto.",t:"Essa conduta viola diretamente qual dispositivo do ECA?",o:["Art. 98, que trata exclusivamente de medidas socioeducativas","Art. 60, que trata da proibição de trabalho infantil","Art. 5º, que veda qualquer forma de negligência, discriminação, exploração, violência, crueldade e opressão","Art. 15, que trata do direito à liberdade de locomoção","Art. 7º, que trata apenas do direito à vida no âmbito familiar"],a:2,e:"Art. 5º do ECA: nenhuma criança ou adolescente será objeto de negligência, discriminação, exploração, violência, crueldade e opressão; punido na forma da lei qualquer atentado a seus direitos fundamentais."},
+{c:"Durante uma capacitação de agentes comunitários de saúde promovida por uma Secretaria Municipal de Saúde, o instrutor apresentou o caso de Renata, gestante de 19 anos, moradora de uma comunidade rural distante do centro urbano, que relatou nunca ter feito nenhum exame pré-natal por falta de transporte até a unidade básica de saúde mais próxima. O instrutor perguntou à turma quais seriam, segundo o Estatuto, os deveres do poder público em relação a gestantes como Renata, especialmente no que diz respeito ao acesso à rede pública de saúde, tema tratado nos arts. 7º a 14 do ECA sobre o direito à vida e à saúde.",t:"O direito à vida e à saúde, previsto nos arts. 7º a 14 do ECA, assegura à gestante, entre outras coisas:",o:["Apenas o direito a exames laboratoriais gratuitos no terceiro trimestre","Atendimento pré e perinatal, e acesso a programas de assistência médica e odontológica pelo SUS","Nenhum direito específico, pois o ECA regula apenas quem já nasceu","Somente o direito à licença-maternidade remunerada","Atendimento exclusivo em hospitais privados conveniados"],a:1,e:"Art. 8º do ECA assegura à gestante, através do SUS, atendimento pré e perinatal, e o art. 11 garante atendimento integral à saúde da criança e do adolescente."},
+{c:"Pedro, de 16 anos, foi criado em uma família de tradição católica, mas, ao longo da adolescência, passou a se identificar com outra denominação religiosa e desejava frequentar os cultos aos domingos, acompanhado de colegas de escola. O pai de Pedro, contrariado, proibiu terminantemente qualquer participação do filho em atividades religiosas diversas daquela professada pela família, afirmando exercer 'poder familiar absoluto' sobre as escolhas do adolescente, inclusive as de foro íntimo e de consciência. Pedro, then, procurou orientação no Conselho Tutelar, relatando a situação e questionando se a proibição paterna era compatível com os direitos assegurados pelo Estatuto.",t:"À luz do direito à liberdade previsto no art. 16 do ECA, essa conduta é:",o:["Legítima apenas se o adolescente tiver menos de 16 anos","Incompatível com o Estatuto, que assegura à criança e ao adolescente o direito de crença e culto religioso","Legítima, pois o poder familiar é absoluto e irrestrito","Incompatível apenas se a criança tiver mais de 12 anos","Irrelevante, pois o ECA não trata de liberdade religiosa"],a:1,e:"Art. 16, III, do ECA inclui entre os componentes do direito à liberdade o de 'crença e culto religioso'."},
+{c:"Uma professora do quinto ano do ensino fundamental notou que um de seus alunos, de 10 anos, apresentava marcas avermelhadas nas costas e nos braços, além de evidente desconforto ao sentar-se. Ao ser gentilmente questionado em particular, o menino relatou, entre lágrimas, que o padrasto costuma bater nele 'com cinta e fio de tomada' sempre que considera que ele 'se comportou mal ou desobedeceu', prática que, segundo a família, seria uma forma legítima e tradicional de educar. A escola, seguindo protocolo, comunicou imediatamente o Conselho Tutelar. Em reunião posterior com a equipe pedagógica, discutiu-se qual dispositivo do ECA trata especificamente dessa forma de disciplina doméstica.",t:"Segundo o art. 18-A do ECA (Lei Menino Bernardo), a criança e o adolescente têm direito a ser educados sem o uso de:",o:["Acompanhamento psicológico voluntário","Qualquer forma de diálogo pedagógico","Atividades extracurriculares obrigatórias","Nenhuma das alternativas, pois a lei permite castigo físico moderado","Castigos físicos ou tratamento cruel ou degradante, como forma de correção, disciplina, educação ou qualquer outro pretexto"],a:4,e:"Art. 18-A do ECA garante o direito de ser educado sem o uso de castigo físico ou tratamento cruel ou degradante, sendo formas de castigo físico o uso de força física que resulte em sofrimento físico visível."},
+{c:"Durante uma fiscalização conjunta entre a Vigilância Sanitária e o Ministério do Trabalho em uma feira livre municipal, os auditores fiscais flagraram uma criança de 8 anos ajudando um comerciante de hortifruti a carregar caixas pesadas e organizar mercadorias em uma banca, das 6h às 11h da manhã, todos os dias da semana, inclusive em dias letivos. O comerciante alegou, em sua defesa, que a criança era sobrinha de um funcionário, que o 'trabalho' era esporádico e não remunerado, e que estava apenas 'ensinando responsabilidade desde cedo' à menina. Os fiscais lavraram auto de constatação e notificaram o Conselho Tutelar, apontando possível infração à legislação protetiva.",t:"Conforme o art. 60 do ECA e a Constituição Federal, essa situação:",o:["É permitida apenas se houver autorização escrita dos pais","É proibida apenas se o trabalho ultrapassar 4 horas diárias","É proibida, pois é vedado qualquer trabalho a menores de 14 anos, salvo na condição de aprendiz a partir dos 14 anos","É permitida se o comerciante for parente da criança","É permitida, pois o trabalho ensina responsabilidade desde cedo"],a:2,e:"Art. 60 do ECA proíbe qualquer trabalho a menores de 14 anos de idade, salvo na condição de aprendiz, em harmonia com o art. 7º, XXXIII, da Constituição Federal."},
+{c:"Um adolescente de 15 anos, regularmente contratado como aprendiz por uma indústria metalúrgica de médio porte, foi escalado pelo setor de recursos humanos para integrar o turno noturno, das 22h às 6h, em razão de 'necessidade urgente de produção', atuando diretamente próximo a máquinas de corte classificadas como insalubres pela CLT. O sindicato da categoria, ao tomar conhecimento da escala através do próprio adolescente, notificou a empresa e acionou a Superintendência Regional do Trabalho, sustentando que a jornada e o ambiente de trabalho designados eram incompatíveis com a condição de aprendiz menor de 18 anos, nos termos do Estatuto.",t:"Essa escala de trabalho viola o ECA porque:",o:["Não há qualquer vedação no ECA para esse tipo de trabalho","A vedação só existe para menores de 16 anos","O horário é permitido, desde que o adolescente tenha mais de 14 anos","É vedado trabalho noturno, perigoso, insalubre ou penoso a menores de 18 anos","Adolescentes não podem trabalhar como aprendizes"],a:3,e:"Art. 67 do ECA proíbe ao adolescente empregado, aprendiz, em regime familiar de trabalho, aluno de escola técnica, assistido em entidade governamental ou não governamental, trabalho noturno, realizado entre 22h e 5h, além de trabalho perigoso, insalubre ou penoso."},
+{c:"Um casal decidiu retirar o filho de 9 anos da escola municipal alegando insatisfação com o método pedagógico adotado e passou a educá-lo exclusivamente em casa, sem vínculo com qualquer instituição de ensino, sem currículo formal reconhecido e sem qualquer acompanhamento por parte da rede pública de educação, sob o argumento de que 'ele aprende melhor em casa, sem regras rígidas'. A situação chegou ao conhecimento do Conselho Tutelar por meio de denúncia de vizinhos, e uma conselheira tutelar foi designada para visitar a família e esclarecer, entre outros pontos, qual é a finalidade legal do direito à educação previsto no Estatuto, para orientar os pais sobre a irregularidade da evasão escolar não amparada por programa reconhecido.",t:"O direito à educação, previsto no art. 53 do ECA, tem por objetivo:",o:["Apenas capacitar o aluno para o mercado de trabalho imediato","O pleno desenvolvimento da pessoa, preparo para o exercício da cidadania e qualificação para o trabalho","Nenhum objetivo específico, sendo a educação uma faculdade da família","Exclusivamente a formação religiosa e moral","Garantir apenas o ensino fundamental obrigatório até os 10 anos"],a:1,e:"Art. 53 do ECA: a criança e o adolescente têm direito à educação, visando ao pleno desenvolvimento de sua pessoa, preparo para o exercício da cidadania e qualificação para o trabalho."},
+{c:"Um diretor de escola estadual, após reunião disciplinar realizada sem a presença do aluno ou de seus responsáveis, aplicou suspensão de dez dias letivos a um estudante do ensino médio, acusado de 'comportamento inadequado' em sala de aula. O aluno e a família só foram comunicados da punição no dia em que ela começou a valer, sem que lhes fosse apresentado por escrito o motivo detalhado da suspensão, tampouco oferecida qualquer oportunidade de manifestação ou de recurso à coordenação pedagógica ou ao conselho de classe. A mãe do aluno procurou a Defensoria Pública, questionando se essa forma de aplicação da penalidade escolar respeitava os direitos do estudante previstos no Estatuto.",t:"Essa conduta contraria qual direito assegurado pelo art. 53 do ECA?",o:["O direito de reprovar automaticamente sem aviso prévio","Nenhum direito, pois a direção escolar tem autonomia irrestrita","O direito de escolher livremente as disciplinas do currículo","O direito de ser respeitado por seus educadores e de contestar critérios avaliativos, podendo recorrer às instâncias escolares superiores","O direito de faltar às aulas sem justificativa"],a:3,e:"Art. 53, II, do ECA assegura à criança e ao adolescente o direito de ser respeitado por seus educadores, e III, o de contestar critérios avaliativos, podendo recorrer às instâncias escolares superiores a eles."},
+{c:"Em um bairro periférico de um município de médio porte, dezenas de famílias com filhos pequenos relatam, em reunião comunitária, que não há nenhuma creche ou pré-escola pública nas proximidades, obrigando mães trabalhadoras a deslocar-se por mais de uma hora de ônibus, ou a abandonar o emprego, para poder deixar os filhos em local seguro durante o expediente. A Secretaria Municipal de Educação, questionada pelo Ministério Público sobre a ausência de vagas na região, respondeu por ofício que 'não há demanda comprovada suficiente para justificar a abertura de nova unidade', apesar dos relatos das famílias. O promotor decidiu então ajuizar ação civil pública, fundamentando-se no dever legal do Município.",t:"Essa omissão contraria o dever do Estado previsto no art. 54 do ECA, que assegura:",o:["Vagas em creches somente para famílias monoparentais","Educação apenas a partir dos seis anos de idade","Atendimento em creche e pré-escola às crianças de zero a cinco anos de idade","Educação infantil apenas em caráter emergencial","Nenhuma obrigação específica, pois a educação infantil é facultativa ao poder público"],a:2,e:"Art. 54, IV, do ECA impõe ao Estado o dever de assegurar atendimento em creche e pré-escola às crianças de zero a cinco anos de idade, dever também previsto no art. 208 da Constituição Federal."},
+{c:"Carla e Roberto, um casal sem qualquer vínculo de parentesco com crianças, encontraram, em frente à igreja do bairro, um menino de aproximadamente 3 anos, aparentemente abandonado, sem documentos e sem ninguém que o reivindicasse. Comovidos, decidiram levá-lo para casa e cuidar dele 'informalmente', sem procurar o Conselho Tutelar nem qualquer autoridade, planejando, no futuro, apenas registrar a criança em cartório como se fosse filho biológico deles, evitando 'toda a burocracia da Justiça'. Um vizinho, desconfiado da situação, denunciou o caso ao Ministério Público, que instaurou procedimento para apurar a regularidade da colocação da criança sob os cuidados do casal.",t:"Segundo o art. 28 do ECA, a colocação em família substituta far-se-á mediante:",o:["Contrato particular registrado em cartório de títulos e documentos","Autorização exclusiva do Conselho Tutelar, sem necessidade de decisão judicial","Simples acordo verbal entre as partes, dispensada qualquer formalidade","Apenas adoção, sendo vedadas outras modalidades","Guarda, tutela ou adoção, independentemente da situação jurídica da criança ou adolescente, nos termos do Estatuto"],a:4,e:"Art. 28 do ECA estabelece que a colocação em família substituta far-se-á mediante guarda, tutela ou adoção, independentemente da situação jurídica da criança ou adolescente, sempre com intervenção judicial."},
+{c:"Fernanda, 35 anos, e seu companheiro, 38 anos, casados há dez anos e sem filhos biológicos, decidiram procurar a Vara da Infância e Juventude de sua comarca para iniciar o processo de habilitação à adoção. Durante a entrevista inicial com a equipe técnica do juizado, o casal manifestou interesse em adotar uma criança de aproximadamente 10 anos, atualmente em acolhimento institucional havia dois anos. A assistente social explicou ao casal os requisitos legais mínimos exigidos pelo Estatuto para que a adoção seja juridicamente possível, tanto quanto à idade do adotante quanto à diferença etária mínima exigida entre adotante e adotando.",t:"Conforme o art. 42 do ECA, a adoção exige que o adotante:",o:["Seja maior de 25 anos e casado civilmente","Não haja qualquer requisito etário, bastando o consentimento dos pais biológicos","Tenha, no mínimo, 21 anos, sem exigência de diferença de idade em relação ao adotando","Tenha, no mínimo, 30 anos, salvo em caso de adoção por avós","Seja maior de 18 anos, e que haja diferença mínima de 16 anos entre adotante e adotando"],a:4,e:"Art. 42, caput, do ECA exige que o adotante seja maior de 18 anos, e o §3º exige diferença mínima de 16 anos entre adotante e adotando."},
+{c:"Uma menina de 9 anos foi acolhida institucionalmente após decisão judicial que constatou negligência grave por parte dos pais biológicos. Passados 22 meses desde o acolhimento, o processo de reintegração familiar não avançou, tampouco foi iniciado qualquer procedimento de destituição do poder familiar que viabilizasse sua colocação em família substituta, permanecendo a criança 'esquecida' na instituição, segundo relatório da equipe técnica. A Defensoria Pública, ao analisar o caso durante mutirão de revisão de acolhimentos, questionou perante o juízo se esse tempo de permanência já não excedia o limite temporal previsto em lei para esse tipo de medida protetiva.",t:"Segundo o art. 19, §2º, do ECA, qual é o prazo máximo de permanência em acolhimento institucional, salvo comprovada necessidade que atenda ao superior interesse da criança?",o:["18 meses","6 meses","24 meses","36 meses","12 meses"],a:0,e:"Art. 19, §2º, do ECA, com redação dada pela Lei 13.509/2017, prevê que a permanência em programa de acolhimento institucional não se prolongará por mais de 18 meses, salvo comprovada necessidade fundamentada pela autoridade judiciária."},
+{c:"Em uma comarca do interior, a juíza da Vara da Infância e Juventude, ao assumir a titularidade, constatou que os processos de crianças e adolescentes em acolhimento institucional não eram revisados havia mais de um ano, em descumprimento a prazo legal expresso. Determinou, então, à equipe interprofissional do fórum que passasse a elaborar relatórios periódicos de reavaliação de cada caso de acolhimento familiar ou institucional sob sua jurisdição, questionando a assessoria jurídica sobre qual seria, segundo o texto atual do Estatuto, a periodicidade máxima exigida para essa reavaliação obrigatória.",t:"Conforme o art. 19, §1º, do ECA, essa reavaliação deve ocorrer, no máximo:",o:["A cada 30 dias","A cada 12 meses","A cada 2 anos","A cada 6 meses","A cada 3 meses"],a:4,e:"Art. 19, §1º, do ECA, alterado pela Lei 13.509/2017, determina reavaliação da situação de acolhimento familiar ou institucional no máximo a cada 3 meses, por equipe interprofissional."},
+{c:"Uma equipe multidisciplinar do CRAS realizou visita domiciliar a uma família em situação de extrema pobreza, constatando que a geladeira estava praticamente vazia e que as três crianças da casa, de 4, 7 e 10 anos, apresentavam sinais de desnutrição leve. O relatório social apontou, contudo, que os pais demonstravam afeto e cuidado dentro das limitações que possuíam, buscando ativamente auxílio em igrejas e associações de bairro. Um vizinho, desconhecendo a complexidade da situação, chegou a sugerir ao Conselho Tutelar que as crianças fossem retiradas da família 'por falta de condições financeiras'. Cabia à equipe técnica esclarecer se a mera pobreza, isoladamente, autorizaria tal medida extrema.",t:"Nessa hipótese, segundo o art. 23 do ECA, a falta ou a carência de recursos materiais:",o:["Autoriza apenas a aplicação de multa administrativa aos pais","Não constitui motivo suficiente para a perda ou a suspensão do poder familiar, devendo a criança ser mantida em sua família de origem com inclusão em programas de auxílio","Autoriza a destituição automática do poder familiar após 30 dias de constatação","É motivo suficiente, por si só, para a perda ou a suspensão do poder familiar","É motivo suficiente apenas se a família tiver mais de três filhos"],a:1,e:"Art. 23, caput, do ECA: a falta ou a carência de recursos materiais não constitui motivo suficiente para a perda ou a suspensão do poder familiar; não existindo outro motivo, a criança será mantida em sua família de origem, incluída em programas de auxílio."},
+{c:"Juliana, 16 anos, está grávida de seu primeiro filho e, após muita reflexão, sem qualquer pressão de terceiros, comunicou à equipe de saúde do hospital em que fará o parto sua firme decisão de entregar o bebê para adoção assim que ele nascer, por não se sentir em condições emocionais e financeiras de criá-lo. A assistente social do hospital, ciente da manifestação espontânea da adolescente, precisou orientar a equipe médica sobre o encaminhamento institucional correto a ser dado nesse tipo de situação, conforme dispositivo específico incluído no Estatuto justamente para tratar da entrega voluntária de crianças para adoção.",t:"Segundo o art. 19-A do ECA, essa gestante ou mãe que manifeste esse interesse deve ser:",o:["Orientada a resolver a situação apenas com a família extensa, sem qualquer órgão público","Impedida de tomar essa decisão até completar 18 anos","Automaticamente destituída do poder familiar sem processo judicial","Encaminhada apenas ao Conselho Tutelar, sem intervenção judicial","Obrigatoriamente encaminhada à Justiça da Infância e da Juventude"],a:4,e:"Art. 19-A, caput, do ECA determina que a gestante ou mãe que manifeste interesse em entregar seu filho para adoção será obrigatoriamente encaminhada à Justiça da Infância e da Juventude."},
+{c:"Um segurança de uma loja de eletrônicos em um shopping center flagrou, pelas câmeras de segurança, um garoto de 13 anos escondendo um videogame portátil dentro da mochila antes de tentar deixar o estabelecimento sem pagar. Abordado na saída, o menino confessou o ato e foi encaminhado, junto com seus responsáveis, à Delegacia Especializada de Proteção à Criança e ao Adolescente. Na ocorrência policial, o delegado precisou classificar tecnicamente, à luz do Estatuto, a natureza jurídica daquela conduta praticada por um adolescente, distinta da nomenclatura utilizada para condutas semelhantes cometidas por adultos.",t:"Segundo o art. 103 do ECA, essa conduta, praticada por adolescente, é tecnicamente denominada:",o:["Ato infracional","Crime","Infração administrativa","Contravenção penal","Transgressão disciplinar"],a:0,e:"Art. 103 do ECA: considera-se ato infracional a conduta descrita como crime ou contravenção penal, quando praticada por criança ou adolescente."},
+{c:"Em um supermercado de bairro, um menino de 10 anos foi flagrado pelo gerente escondendo diversos pacotes de doces dentro da própria roupa, na clara intenção de subtraí-los sem pagamento. Diante do fato, o gerente cogitou acionar a polícia para 'lavrar um boletim de ocorrência contra o menor', nos mesmos moldes do que faria com um adulto flagrado em situação análoga. Um funcionário mais experiente, contudo, alertou que, por se tratar de uma criança (e não de um adolescente), o tratamento jurídico dado pelo Estatuto ao caso seria necessariamente diferente, cabendo esclarecer qual conjunto de medidas seria aplicável.",t:"Como a criança (pessoa até 12 anos incompletos) não se submete a medida socioeducativa, segundo o ECA ela estará sujeita a:",o:["Medidas de proteção previstas no art. 101 do ECA","Multa aplicada pelo Conselho Tutelar","Nenhuma medida, pois é inimputável para qualquer finalidade","Internação imediata em unidade socioeducativa","Prisão em flagrante, como qualquer adulto"],a:0,e:"Art. 105 do ECA: ao ato infracional praticado por criança corresponderão as medidas previstas no art. 101, já que apenas adolescentes se submetem a medidas socioeducativas."},
+{c:"Um adolescente de 16 anos foi apreendido em via pública por policiais militares, sob suspeita de participação em ato infracional análogo a roubo, e conduzido diretamente à delegacia especializada. Passaram-se mais de seis horas sem que qualquer autoridade entrasse em contato com sua mãe ou com qualquer outro familiar para informar sobre a apreensão e o local em que o adolescente se encontrava recolhido, o que gerou intensa angústia à família, que só descobriu o paradeiro do filho por meio de um colega que presenciou a abordagem. A Defensoria Pública, ao assumir a defesa técnica, apontou grave violação a garantia processual expressamente prevista no Estatuto.",t:"Essa conduta viola qual garantia processual prevista no art. 106 e seguintes do ECA?",o:["O direito de ser identificado por fotografias em jornais locais","O direito de ser julgado por um júri popular","O direito de comunicação imediata da apreensão à família ou pessoa por ele indicada, e à autoridade judiciária competente","O direito de permanecer detido por prazo indeterminado até audiência","O direito de escolher livremente o delegado responsável pelo caso"],a:2,e:"Art. 107 do ECA: a apreensão de criança ou adolescente e o local onde se encontra recolhido serão incontinenti comunicados à autoridade judiciária competente e à família ou pessoa indicada por ele."},
+{c:"Durante audiência de apresentação, o Ministério Público avaliava se seria caso de requerer a internação provisória de um adolescente apreendido por ato infracional análogo a furto simples, praticado sem qualquer violência ou grave ameaça à vítima, tratando-se de sua primeira passagem pelo sistema socioeducativo. A defesa técnica sustentou que a internação, por ser a medida mais gravosa prevista no Estatuto, somente poderia ser aplicada em hipóteses taxativamente previstas em lei, argumentando que o caso concreto não se enquadrava em nenhuma delas, já que não havia violência, reiteração de infrações graves nem descumprimento de medida anterior.",t:"Segundo o art. 122 do ECA, a medida de internação socioeducativa só pode ser aplicada quando:",o:["O adolescente tiver antecedentes escolares ruins","O Ministério Público entender ser conveniente, independentemente da gravidade do ato","O ato infracional envolver qualquer tipo de dano patrimonial, ainda que mínimo","O ato infracional for cometido mediante grave ameaça ou violência a pessoa, por reiteração no cometimento de outras infrações graves, ou por descumprimento reiterado e injustificável de medida anteriormente imposta","A família não comparecer à audiência de apresentação"],a:3,e:"Art. 122, I a III, do ECA lista taxativamente as hipóteses de internação: grave ameaça ou violência a pessoa, reiteração em infrações graves, ou descumprimento reiterado e injustificável de medida anterior."},
+{c:"Um adolescente cumpre medida socioeducativa de internação havia dois anos e onze meses, em razão de ato infracional análogo a roubo qualificado praticado com emprego de arma. A defesa técnica, ao acompanhar a execução da medida, peticionou ao juízo questionando até quando, no limite absoluto previsto em lei, aquela privação de liberdade poderia se estender, independentemente de sucessivas reavaliações que viessem a ser realizadas pela equipe técnica e pelo magistrado responsável pela execução.",t:"Segundo o art. 121, §3º, do ECA, em nenhuma hipótese o período máximo de internação excederá:",o:["1 ano","5 anos","8 anos","3 anos","2 anos"],a:3,e:"Art. 121, §3º, do ECA: em nenhuma hipótese o período máximo de internação excederá a três anos."},
+{c:"O juiz titular da Vara de Execuções de Medidas Socioeducativas de determinada comarca, ao organizar sua pauta de audiências, percebeu que diversos processos de adolescentes internados não eram reavaliados havia mais de oito meses, em descumprimento a prazo legal. Determinou então à secretaria judicial que passasse a agendar, de forma sistemática, audiências de reavaliação para todos os internos sob sua jurisdição, questionando a assessoria sobre qual seria a periodicidade máxima exigida pelo Estatuto para essa reavaliação obrigatória e fundamentada da manutenção da medida.",t:"Segundo o art. 121, §2º, do ECA, essa reavaliação deve ocorrer, no máximo:",o:["A cada 18 meses","A cada 6 meses","A cada 1 ano","Apenas uma vez, ao final do primeiro ano","A cada 3 meses"],a:1,e:"Art. 121, §2º, do ECA: a medida de internação não comporta prazo determinado, devendo sua manutenção ser reavaliada, mediante decisão fundamentada, no máximo a cada seis meses."},
+{c:"Marcos cumpria medida socioeducativa de internação desde os 17 anos de idade, em razão de ato infracional grave, e completou 21 anos de idade sem que o processo de execução tivesse sido formalmente encerrado pela unidade socioeducativa, que alegava 'pendências administrativas' para justificar a manutenção da medida. A Defensoria Pública impetrou habeas corpus imediatamente após o aniversário de Marcos, sustentando que, ao atingir aquela idade específica, cessaria automaticamente qualquer possibilidade de manutenção da medida socioeducativa, independentemente de qualquer formalidade administrativa pendente.",t:"Segundo o art. 121, §5º, do ECA, ao completar essa idade, o adolescente (agora jovem adulto) deve:",o:["Ser transferido automaticamente ao sistema penitenciário comum","Ser liberado compulsoriamente, encerrando-se a medida socioeducativa","Ser submetido a novo processo criminal como se fosse imputável desde o início","Continuar internado até completar 25 anos","Permanecer internado por mais 3 anos, contados da maioridade civil"],a:1,e:"Art. 121, §5º, do ECA: a liberação será compulsória aos 21 anos de idade, encerrando-se, nesse momento, qualquer medida socioeducativa em execução."},
+{c:"Um adolescente de 14 anos, sem qualquer passagem anterior pelo sistema socioeducativo, praticou ato infracional de natureza leve, consistente em uma discussão que resultou em dano patrimonial mínimo e sem violência à vítima. Diante da baixa gravidade do fato, do bom histórico escolar do adolescente e da postura colaborativa de sua família na audiência, o juiz decidiu não aplicar nenhuma medida mais gravosa, optando por uma simples reprimenda verbal, formalmente registrada em termo e assinada por todos os presentes como forma de responsabilização mínima e pedagógica.",t:"Essa medida socioeducativa, prevista no art. 112, I, e regulada pelo art. 115 do ECA, é denominada:",o:["Obrigação de reparar o dano","Semiliberdade","Prestação de serviços à comunidade","Liberdade assistida","Advertência"],a:4,e:"Art. 115 do ECA: a advertência consistirá em admoestação verbal, que será reduzida a termo e assinada; é a única medida socioeducativa aplicável diretamente pelo juiz mesmo sem prova aprofundada de autoria."},
+{c:"Durante uma discussão de trânsito, um adolescente de 15 anos, tomado por raiva, danificou propositalmente o para-choque e o retrovisor do carro de um vizinho, causando prejuízo de aproximadamente dois mil reais. Reconhecendo a autoria do ato, e não havendo elementos que justificassem medida mais severa, o juiz decidiu que a forma mais adequada de responsabilização seria determinar que o próprio adolescente, com o auxílio da família, arcasse com o conserto do veículo danificado, restituindo o prejuízo diretamente à vítima.",t:"Essa medida socioeducativa, prevista no art. 112, II, e regulada pelo art. 116 do ECA, é a:",o:["Obrigação de reparar o dano","Advertência","Prestação de serviços à comunidade","Internação","Liberdade assistida"],a:0,e:"Art. 116 do ECA: em se tratando de ato infracional com reflexos patrimoniais, a autoridade poderá determinar que o adolescente restitua a coisa, promova o ressarcimento do dano, ou, por outra forma, compense o prejuízo da vítima."},
+{c:"Após praticar ato infracional de gravidade média, um adolescente de 16 anos foi condenado pelo juízo a cumprir tarefas gratuitas de interesse geral em uma entidade beneficente local, auxiliando na organização de doações de alimentos, pelo período de quatro meses, em jornada de até seis horas semanais, sempre aos sábados pela manhã, de forma a não prejudicar sua frequência escolar nem eventual vínculo de trabalho como aprendiz que viesse a firmar.",t:"Essa medida, prevista nos arts. 112, III, e 117 do ECA, é a:",o:["Internação","Prestação de serviços à comunidade","Liberdade assistida","Semiliberdade","Obrigação de reparar o dano"],a:1,e:"Art. 117 do ECA: a prestação de serviços à comunidade consiste na realização de tarefas gratuitas de interesse geral, por período não excedente a seis meses, em entidades assistenciais, sem prejuízo da escola ou trabalho."},
+{c:"Após avaliação técnica, a equipe multiprofissional recomendou que um adolescente reincidente em pequenos furtos, mas sem histórico de violência, permanecesse em liberdade, mas sob acompanhamento próximo de um orientador designado pelo juízo, responsável por auxiliá-lo na reaproximação com a família, no retorno à escola e na inserção em curso profissionalizante, com encontros semanais de acompanhamento e relatórios periódicos ao juízo sobre a evolução do adolescente ao longo de, no mínimo, seis meses.",t:"Essa medida, prevista nos arts. 112, IV, e 118 do ECA, é a:",o:["Advertência","Internação","Semiliberdade","Prestação de serviços à comunidade","Liberdade assistida"],a:4,e:"Art. 118 do ECA: a liberdade assistida será adotada sempre que se afigurar a medida mais adequada para o fim de acompanhar, auxiliar e orientar o adolescente, com prazo mínimo de seis meses."},
+{c:"Um adolescente de 17 anos, autor de ato infracional de média gravidade, foi encaminhado a uma unidade especializada onde permanece recolhido apenas durante o período noturno, das 19h às 6h, retornando diariamente à comunidade para frequentar a escola regular pela manhã e um curso profissionalizante de eletricista no período da tarde, sempre sob supervisão da equipe técnica da unidade, que também promove atividades externas de reinserção social nos finais de semana.",t:"Essa medida socioeducativa, prevista nos arts. 112, V, e 120 do ECA, é o regime de:",o:["Internação rigorosa","Liberdade assistida","Semiliberdade","Advertência qualificada","Prestação comunitária ampliada"],a:2,e:"Art. 120 do ECA: o regime de semiliberdade pode ser desde o início, ou como forma de transição para o meio aberto, sendo obrigatórias a escolarização e a profissionalização, permitindo-se atividades externas."},
+{c:"Após cometer ato infracional análogo a lesão corporal grave, praticado mediante violência contra a vítima, um adolescente de 16 anos foi encaminhado pelo juízo a estabelecimento educacional próprio, distinto de qualquer unidade prisional destinada a adultos, onde permanecerá totalmente privado de liberdade, submetido a atividades pedagógicas, escolares e profissionalizantes internas, com a garantia de que a medida seja aplicada com a menor duração possível e de forma excepcional, respeitando sua condição peculiar de pessoa em desenvolvimento.",t:"Essa é a medida socioeducativa mais gravosa do ECA, denominada:",o:["Liberdade assistida","Advertência","Prestação de serviços à comunidade","Semiliberdade","Internação"],a:4,e:"Art. 121 do ECA: a internação constitui medida privativa de liberdade, sujeita aos princípios de brevidade, excepcionalidade e respeito à condição peculiar de pessoa em desenvolvimento."},
+{c:"O prefeito de um município de pequeno porte, alegando 'contenção de despesas públicas', decidiu extinguir o único Conselho Tutelar da cidade, direcionando todas as denúncias e demandas relacionadas a crianças e adolescentes diretamente ao Poder Judiciário local, sem qualquer órgão administrativo intermediário. O Ministério Público, ao tomar conhecimento da medida por meio de reportagem local, ajuizou imediatamente ação civil pública contra o município, sustentando que a existência desse órgão é imposição legal obrigatória, e não mera faculdade discricionária do gestor municipal.",t:"Essa situação viola o art. 132 do ECA, que exige a existência, em cada Município, de, no mínimo:",o:["Uma Delegacia Especializada em crimes contra crianças","Um Conselho Municipal de Saúde","Um Juizado Especial Cível","Uma Vara Privativa da Infância e Juventude","Um Conselho Tutelar"],a:4,e:"Art. 132 do ECA: em cada Município haverá, no mínimo, um Conselho Tutelar como órgão integrante da administração pública local, composto de 5 membros, mandato de 4 anos, permitida recondução por novos processos de escolha."},
+{c:"Rafael, de 19 anos, muito engajado em trabalhos sociais em sua comunidade e reconhecido pelos vizinhos por sua conduta exemplar, decidiu se inscrever no processo de escolha para conselheiro tutelar de seu município, no qual reside desde criança. Ao protocolar a documentação, a comissão organizadora do certame informou que sua candidatura não poderia ser homologada, apesar de sua idoneidade moral reconhecida e de sua comprovada residência local, em razão do não preenchimento de um requisito etário mínimo expressamente exigido pelo Estatuto para o exercício da função.",t:"Segundo o art. 133 do ECA, além de idoneidade moral e residência no município, qual requisito de idade é exigido para a candidatura?",o:["Idade superior a 25 anos","Idade superior a 21 anos","Idade superior a 18 anos","Idade superior a 30 anos","Não há exigência de idade mínima"],a:1,e:"Art. 133, II, do ECA exige idade superior a 21 anos para a candidatura a membro do Conselho Tutelar, além de reconhecida idoneidade moral (I) e residência no município (III)."},
+{c:"Uma conselheira tutelar, muito bem avaliada pela comunidade e pelos demais órgãos de proteção durante seu primeiro mandato de quatro anos, decidiu se candidatar novamente ao cargo em novo processo de escolha popular, tendo sido reeleita com ampla votação. Um vereador da oposição, contudo, questionou judicialmente a validade dessa segunda candidatura, sustentando, com base em redação antiga do Estatuto que ele acreditava ainda vigente, que a lei permitiria apenas uma única recondução ao cargo, vedando candidaturas subsequentes a partir da terceira eleição consecutiva.",t:"Segundo a redação atual do art. 132 do ECA (após a Lei 13.824/2019), a recondução do conselheiro tutelar é:",o:["Permitida por novos processos de escolha, sem limite expresso de reconduções","Vedada em qualquer hipótese","Permitida somente após intervalo mínimo de um mandato","Permitida apenas uma única vez","Permitida apenas mediante aprovação do Ministério Público"],a:0,e:"A Lei 13.824/2019 alterou o art. 132 do ECA, retirando o limite de 'uma recondução' e passando a permitir recondução por novos processos de escolha, sem limite expresso na lei."},
+{c:"Um pai, insatisfeito com uma decisão tomada pelo Conselho Tutelar de sua cidade em relação ao filho, dirigiu-se à sede do órgão exigindo 'falar com o juiz responsável pelo Conselho', na convicção equivocada de que se tratava de uma espécie de vara judicial de primeira instância, à qual caberia recorrer diretamente de eventual decisão que não lhe agradasse, como faria em relação a uma sentença proferida por um magistrado. A coordenadora do Conselho precisou então esclarecer ao pai a real natureza jurídica e institucional daquele órgão, distinta do Poder Judiciário.",t:"Segundo o art. 131 do ECA, o Conselho Tutelar é órgão:",o:["Jurisdicional apenas em comarcas de pequeno porte","Consultivo, sem qualquer poder de aplicar medidas de proteção","Temporário, vinculado ao Ministério Público estadual","Permanente e autônomo, não jurisdicional, encarregado pela sociedade de zelar pelo cumprimento dos direitos da criança e do adolescente","Jurisdicional, equivalente a uma vara especializada"],a:3,e:"Art. 131 do ECA: o Conselho Tutelar é órgão permanente e autônomo, não jurisdicional, encarregado pela sociedade de zelar pelo cumprimento dos direitos da criança e do adolescente definidos no Estatuto."},
+{c:"Após a separação litigiosa de um casal, o pai, inconformado com a decisão de guarda compartilhada, passou a impedir sistematicamente que o filho de 8 anos visitasse a mãe nos fins de semana alternados definidos judicialmente, alegando 'não confiar' na nova rotina estabelecida pela ex-esposa. A mãe, exaurida de tentativas amigáveis de resolver a situação, procurou o Conselho Tutelar do bairro, relatando o descumprimento reiterado da decisão e pedindo providências imediatas do órgão para garantir o convívio com o filho.",t:"Dentre as atribuições do Conselho Tutelar previstas no art. 136 do ECA, cabe a esse órgão:",o:["Aplicar diretamente medida de internação ao pai infrator","Substituir integralmente a autoridade judiciária em qualquer processo de família","Decretar a destituição do poder familiar diretamente, sem intervenção judicial","Atender crianças e adolescentes e aplicar as medidas previstas no art. 101, I a VII, além de atender e aconselhar os pais, aplicando as medidas do art. 129, I a VII","Determinar a prisão preventiva do pai"],a:3,e:"Art. 136, I e II, do ECA atribui ao Conselho Tutelar atender crianças/adolescentes com medidas do art. 101, e atender/aconselhar pais ou responsável, aplicando medidas do art. 129, sem poder jurisdicional de decretar destituição ou prisão."},
+{c:"Uma organização religiosa de pequeno porte decidiu abrir, em caráter informal, uma casa de acolhimento para crianças órfãs em situação de vulnerabilidade, contando com boa estrutura física e voluntários dedicados, mas sem jamais ter buscado qualquer tipo de registro ou autorização junto aos órgãos públicos competentes, por considerar 'burocracia desnecessária' diante da boa intenção do trabalho social realizado. Durante fiscalização de rotina, o Conselho Municipal dos Direitos da Criança e do Adolescente constatou a irregularidade e notificou a entidade a regularizar imediatamente sua situação.",t:"Segundo o art. 90 do ECA, entidades que desenvolvem programas de acolhimento institucional, familiar ou colocação em família substituta são classificadas como entidades de:",o:["Atendimento, sujeitas a registro e fiscalização","Saúde, sujeitas apenas à ANVISA","Lazer, sujeitas apenas à vigilância sanitária","Assistência opcional, sem qualquer regulação estatal","Ensino, sujeitas apenas ao MEC"],a:0,e:"Art. 90 do ECA classifica como entidades de atendimento aquelas que desenvolvem programas de proteção e socioeducativos, exigindo registro no Conselho Municipal dos Direitos da Criança e do Adolescente (art. 91)."},
+{c:"Um ex-funcionário de um abrigo municipal para crianças e adolescentes, demitido recentemente, procurou o Ministério Público para relatar práticas que presenciou durante seu período de trabalho na instituição: crianças eram frequentemente isoladas em um quarto escuro sem ventilação como forma de 'castigo pedagógico' e, em casos considerados mais graves de indisciplina, chegavam a sofrer castigos físicos aplicados por monitores, prática que, segundo ele, era tida como 'normal' dentro da rotina do estabelecimento havia anos. O promotor instaurou inquérito civil para apurar possível violação às obrigações legais impostas às entidades de acolhimento.",t:"Segundo o art. 94 do ECA, entidades que executam programas de internação têm, entre suas obrigações, a proibição de:",o:["Aplicar medidas discriminatórias e utilizar castigo físico como forma de correção, disciplina ou educação","Preservar os vínculos familiares e promover a reintegração familiar","Diligenciar no sentido do restabelecimento e da preservação dos vínculos familiares","Comunicar à autoridade judiciária os casos de adolescentes acolhidos","Oferecer atendimento personalizado em pequenas unidades"],a:0,e:"Art. 94, XIV, do ECA proíbe às entidades que desenvolvem programas de internação aplicar castigos corporais e submeter os internos a tratamento vexatório ou constrangedor."},
+{c:"Durante investigação conduzida pela Polícia Civil, agentes especializados identificaram um perfil em rede social que compartilhava, em grupos fechados, fotografias e vídeos de cenas de exploração sexual envolvendo crianças, disponibilizando o material mediante pagamento em criptomoeda a outros usuários cadastrados. Após obtenção de mandado judicial, os investigadores conseguiram identificar e prender o administrador do grupo, sendo necessário, na lavratura do auto de prisão em flagrante, indicar corretamente o tipo penal do Estatuto no qual a conduta se enquadrava.",t:"Segundo o art. 241-A do ECA, oferecer, trocar, disponibilizar ou divulgar por qualquer meio, inclusive por meio de sistema de informática, fotografia ou vídeo de cena de sexo explícito ou pornográfico envolvendo criança ou adolescente constitui:",o:["Contravenção penal, sujeita a prisão simples","Ato infracional, aplicável apenas se o autor for adolescente","Infração administrativa, sujeita apenas a multa","Crime, sujeito a reclusão, de 3 a 6 anos, e multa","Conduta lícita se o conteúdo for removido em 24 horas"],a:3,e:"Art. 241-A do ECA tipifica como crime oferecer, trocar, disponibilizar, transmitir, distribuir, publicar ou divulgar material com pornografia infantil, com pena de reclusão de 3 a 6 anos e multa."},
+{c:"Um homem de 30 anos, conhecido em uma comunidade por 'aliciar' adolescentes para pequenos furtos em lojas de departamento, foi flagrado por câmeras de segurança orientando um garoto de 15 anos sobre como distrair funcionários enquanto ele mesmo subtraía mercadorias, prometendo ao adolescente parte do lucro obtido com a revenda dos produtos furtados. Preso em flagrante, o investigado alegou, ingenuamente, que 'quem furtou de fato foi o adolescente', tentando se eximir de responsabilidade penal própria pela indução da conduta.",t:"Segundo o art. 244-B do ECA, corromper ou facilitar a corrupção de menor de 18 anos, com ele praticando infração penal ou induzindo-o a praticá-la, constitui crime sujeito a:",o:["Reclusão, de 1 a 4 anos","Prisão simples de até 6 meses","Multa civil, sem pena privativa de liberdade","Advertência administrativa apenas","Nenhuma sanção, pois cabe apenas medida socioeducativa ao adolescente"],a:0,e:"Art. 244-B, caput, do ECA: corromper ou facilitar a corrupção de menor de 18 anos, com ele praticando infração penal ou induzindo-o a praticá-la: pena – reclusão, de 1 a 4 anos."},
+{c:"Uma criança de 5 anos ficou órfã após o falecimento simultâneo dos pais em um acidente de trânsito, sem que nenhum familiar próximo tivesse condições ou interesse em exercer o poder familiar sobre ela. Como havia uma indenização judicial a ser recebida em razão do acidente, tornou-se necessário que alguém representasse formalmente a criança em juízo para receber e administrar esses valores até sua maioridade, hipótese em que o juízo precisou definir qual instituto jurídico do Direito de Família, disciplinado também pelo Estatuto, seria o adequado para essa representação legal.",t:"Segundo o art. 36 do ECA, essa situação deve ser resolvida mediante:",o:["Guarda provisória por prazo máximo de 30 dias","Adoção compulsória imediata","Tutela, deferida a pessoa de até 18 anos incompletos","Curatela especial, exclusiva para maiores de idade incapazes","Nenhuma medida, aguardando-se a maioridade da criança"],a:2,e:"Art. 36 do ECA: a tutela será deferida, nos termos da lei civil, a pessoa de até 18 anos incompletos, pressupondo a prévia decretação da perda ou suspensão do poder familiar e implicando necessariamente o dever de guarda."},
+{c:"Após uma separação conturbada, o juízo da Vara de Família deferiu a guarda unilateral de uma criança de 7 anos à mãe, estabelecendo regime de visitas quinzenais ao pai. Certa vez, um tio paterno tentou buscar a criança na escola sem qualquer autorização prévia da genitora, alegando ser 'da família' e, portanto, ter direito automático de retirá-la das dependências escolares. A diretora da escola, ciente da decisão judicial, recusou a entrega da criança, questionando qual prerrogativa legal a detentora da guarda possuía justamente para impedir esse tipo de retirada por terceiros não autorizados.",t:"Segundo o art. 33 do ECA, a guarda obriga a prestação de assistência material, moral e educacional à criança ou adolescente, conferindo a seu detentor o direito de opor-se a terceiros, inclusive a:",o:["Somente a parentes de até quarto grau","Terceiros, inclusive aos pais, quando estes não detiverem a guarda","Apenas ao Ministério Público","Aos pais biológicos, em qualquer hipótese, mesmo sem decisão judicial","Nenhuma pessoa, pois a guarda não gera direito de oposição"],a:1,e:"Art. 33, caput, do ECA: a guarda obriga a prestação de assistência material, moral e educacional, conferindo ao detentor o direito de opor-se a terceiros, inclusive aos pais."},
+{c:"Depois de um longo processo judicial, marcado por sucessivas tentativas frustradas de reintegração familiar, diversos estudos psicossociais e o esgotamento de todas as alternativas de manutenção do vínculo com a família biológica em razão de negligência reiterada, o juízo finalmente proferiu sentença concedendo a adoção de uma criança de 6 anos a um casal cuidadosamente avaliado ao longo de meses de convivência assistida. Após o trânsito em julgado e o devido registro em cartório, os pais biológicos, arrependidos, procuraram um advogado perguntando se ainda seria possível 'desfazer' a adoção e reaver a guarda da criança.",t:"Segundo o art. 47 do ECA, a adoção, uma vez concedida por sentença judicial e registrada, é:",o:["Válida por prazo determinado de 10 anos, renovável","Revogável a qualquer tempo, mediante simples pedido dos pais biológicos","Irrevogável, atribuindo a condição de filho ao adotado, com os mesmos direitos e deveres, inclusive sucessórios","Automaticamente extinta se o adotado atingir a maioridade","Condicionada à concordância anual do Ministério Público"],a:2,e:"Art. 47, caput e §7º, do ECA: a adoção é irrevogável, e o vínculo de filiação se estabelece por meio de sentença judicial, que será inscrita no registro civil mediante mandado."},
+{c:"Em um processo judicial de guarda disputada entre os pais, uma adolescente de 16 anos manifestou insistentemente o desejo de ser ouvida diretamente pela juíza responsável, para expressar, com suas próprias palavras, com qual dos genitores preferia residir e conviver com maior frequência, considerando seus vínculos afetivos, a proximidade da escola e das atividades extracurriculares que já desenvolvia havia anos. A equipe técnica do juízo orientou a magistrada sobre a forma adequada de colher essa manifestação, respeitando critérios específicos estabelecidos pelo próprio Estatuto para a oitiva de crianças e adolescentes em processos judiciais que os afetam diretamente.",t:"Segundo o art. 28, §1º, do ECA, sempre que possível, a criança ou o adolescente será previamente ouvido por equipe interprofissional e sua opinião devidamente considerada, respeitado seu estágio de desenvolvimento e grau de:",o:["Idade cronológica, sem qualquer outro critério","Renda familiar","Vínculo religioso com a família","Compreensão sobre as implicações da medida","Escolaridade formal apenas"],a:3,e:"Art. 28, §1º, do ECA: sempre que possível, a criança ou adolescente será previamente ouvido por equipe interprofissional, respeitado seu estágio de desenvolvimento e grau de compreensão sobre as implicações da medida."},
+{c:"Uma emissora de televisão de grande audiência, buscando aumentar seus índices de audiência com uma reportagem de forte apelo sensacionalista, planejou exibir, em seu telejornal de horário nobre, imagens do rosto, o nome completo e até o endereço da residência de um adolescente recentemente apreendido por suspeita de participação em ato infracional grave, sob a justificativa editorial de 'alertar e informar a sociedade' sobre a criminalidade juvenil na região. A assessoria jurídica da emissora, contudo, foi acionada às pressas para avaliar a legalidade dessa divulgação à luz do Estatuto antes que a matéria fosse ao ar.",t:"Segundo o art. 143 do ECA, é vedada a divulgação de atos judiciais, policiais e administrativos que:",o:["Se refiram a maiores de 16 anos, apenas","Digam respeito a crianças e adolescentes a que se atribua autoria de ato infracional, permitindo-se sua identificação por qualquer meio de comunicação","Sejam de interesse público relevante, independentemente da idade","Tratem exclusivamente de questões cíveis de família","Envolvam apenas processos de adoção internacional"],a:1,e:"Art. 143, caput, do ECA veda a divulgação de atos judiciais, policiais e administrativos que digam respeito a crianças e adolescentes a que se atribua ato infracional, vedando-se sua identificação."},
+{c:"Um adolescente de 17 anos foi apreendido em flagrante por suspeita de participação em ato infracional grave e, diante da necessidade de aprofundar as investigações sobre coautoria e materialidade dos fatos, a autoridade policial representou pela sua internação provisória, medida excepcional que antecede a sentença. Passados mais de sessenta dias sem que qualquer audiência de instrução tivesse sido realizada nem sentença proferida, a defesa técnica peticionou requerendo a imediata soltura do adolescente, sustentando que o prazo máximo legal para esse tipo de internação cautelar já havia sido amplamente ultrapassado.",t:"Segundo o art. 108 do ECA, a internação, antes da sentença, pode ser determinada pelo prazo máximo de:",o:["90 dias","60 dias","45 dias","30 dias","15 dias"],a:2,e:"Art. 108, caput, do ECA: a internação, antes da sentença, pode ser determinada pelo prazo máximo de 45 dias, sendo medida excepcional e fundamentada em indícios suficientes de autoria e materialidade."},
+{c:"Um adolescente de 14 anos, sem antecedentes, praticou ato infracional de natureza leve, envolvendo pequeno desentendimento sem maiores consequências. Antes mesmo de oferecer representação formal ao juízo, o promotor de Justiça, avaliando as circunstâncias pessoais e sociais favoráveis do adolescente, propôs o encerramento antecipado do procedimento mediante sua inclusão em um breve programa comunitário de orientação, deixando claro que essa proposta não implicaria em qualquer reconhecimento formal de culpa ou responsabilização, nem geraria antecedentes para o adolescente.",t:"Esse instituto, previsto no art. 126 do ECA, é conhecido como:",o:["Suspensão condicional do processo","Transação penal","Colaboração premiada","Remissão","Acordo de não persecução penal"],a:3,e:"Art. 126, caput, do ECA: antes de iniciado o procedimento judicial para apuração de ato infracional, o representante do Ministério Público poderá conceder a remissão, como forma de exclusão do processo."},
+{c:"Uma adolescente de 14 anos foi vítima de violência sexual praticada por um parente próximo e precisava relatar os fatos em juízo para instruir o processo criminal contra o acusado. A equipe técnica do fórum alertou que a forma tradicional de tomada de depoimento, com perguntas repetidas por diferentes autoridades ao longo do processo (delegado, promotor, juiz), poderia causar sério sofrimento psicológico adicional à adolescente, fenômeno conhecido como revitimização, sendo necessário adotar procedimento diferenciado previsto em lei específica que alterou dispositivos do Estatuto justamente para evitar esse tipo de dano.",t:"Segundo a Lei 13.431/2017, que alterou o ECA, esse depoimento deve, sempre que possível, ser colhido por meio de:",o:["Exposição do relato em rede social oficial do tribunal","Questionário escrito respondido sem qualquer acompanhamento","Confronto direto com o suposto agressor em audiência pública","Escuta especializada e depoimento especial, realizados por profissionais capacitados, evitando a revitimização","Interrogatório policial padrão, sem qualquer adaptação"],a:3,e:"A Lei 13.431/2017 instituiu o sistema de garantia de direitos da criança e do adolescente vítima ou testemunha de violência, prevendo escuta especializada e depoimento especial como formas de evitar a revitimização."},
+{c:"Um vereador de determinado município apresentou projeto de lei municipal que autorizaria expressamente a entrada e permanência de adolescentes menores de 18 anos, desacompanhados de pais ou responsável, em casas noturnas e bailes funk realizados após as 22h, desde que mediante pagamento de uma 'taxa de responsabilidade' cobrada pelo próprio estabelecimento comercial. A Procuradoria do Município, ao analisar a proposta antes de sua tramitação, apontou incompatibilidade com dispositivo do Estatuto que já disciplina, em âmbito federal, a competência para regular esse tipo de frequência.",t:"Essa proposta contraria o art. 149 do ECA, que autoriza a autoridade judiciária a disciplinar, por meio de portaria ou autorização judicial, a entrada e permanência de criança ou adolescente, desacompanhados dos pais ou responsável, em:",o:["Bibliotecas públicas municipais","Casas de espetáculos, bailes ou promoções dançantes, e estabelecimentos que exploram comercialmente diversões eletrônicas","Postos de saúde da rede municipal","Praças públicas durante o dia","Escolas públicas durante o horário de aula"],a:1,e:"Art. 149, I e II, do ECA autoriza a autoridade judiciária a regulamentar a entrada e permanência de crianças e adolescentes, desacompanhados, em casas de espetáculo, bailes, boates e locais de diversão eletrônica."},
+{c:"Em uma festa de aniversário organizada em um bar de bairro, o dono do estabelecimento, mesmo percebendo que um dos convidados aparentava ser bem jovem, vendeu diversas doses de bebida destilada a um adolescente de 16 anos, sem exigir qualquer documento de identificação, justificando posteriormente à fiscalização municipal que 'ele aparentava ter mais idade' e que não seria sua obrigação verificar a idade de cada cliente antes de servir bebida alcoólica no balcão do bar.",t:"Segundo o art. 243 do ECA, vender, fornecer, servir, ministrar ou entregar, ainda que gratuitamente, bebida alcoólica a criança ou adolescente constitui:",o:["Conduta atípica, pois o ECA não regula bebidas alcoólicas","Ato infracional, aplicável apenas ao próprio adolescente","Conduta lícita, desde que o vendedor não saiba a idade real","Mera infração administrativa, sujeita apenas a advertência verbal","Crime, sujeito a detenção e multa, além de suspensão do estabelecimento em caso de reincidência"],a:4,e:"Art. 243 do ECA tipifica como crime vender, fornecer ainda que gratuitamente, ministrar ou entregar bebida alcoólica ou produto que cause dependência física ou psíquica a criança ou adolescente."}
+];
+
+let current = 0;
+let answers = new Array(Q.length).fill(null);
+
+/* ===================== FIREBASE ===================== */
+// ⚠️ Substitua pelos dados do SEU projeto (Firebase Console → Configurações do projeto)
+const firebaseConfig = {
+  apiKey: "AIzaSyB9avRtO3rsgNnAC_9scIQRkJwf7bnRISs",
+  authDomain: "app-q-p.firebaseapp.com",
+  projectId: "app-q-p",
+  storageBucket: "app-q-p.firebasestorage.app",
+  messagingSenderId: "285418473133",
+  appId: "1:285418473133:web:4d17c53ac359c4611da824"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+const REQUESTS_COLLECTION = 'solicitacoes_eca';
+
+/* ===================== ACESSO / CADASTRO POR E-MAIL ===================== */
+
+const STORAGE_USER_EMAIL = 'simulado_userEmail';
+
+function sanitizeEmail(email) { return email.trim().toLowerCase(); }
+function isValidEmail(email) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); }
+
+async function init() {
+  const email = localStorage.getItem(STORAGE_USER_EMAIL);
+  if (!email) { renderEmailGate(); return; }
+  await checkStatus(email);
+}
+
+async function checkStatus(email) {
+  renderLoading('Verificando seu acesso…');
+  try {
+    const snap = await db.collection(REQUESTS_COLLECTION).doc(sanitizeEmail(email)).get();
+    if (!snap.exists) { renderEmailGate(); return; }
+    const data = snap.data();
+    if (data.status === 'approved') renderStart();
+    else if (data.status === 'rejected') renderGateStatus('rejected', email);
+    else renderGateStatus('pending', email);
+  } catch (e) {
+    renderGateError('Não foi possível conectar ao servidor. Verifique sua internet e tente novamente.');
+  }
+}
+
+function renderLoading(msg) {
+  document.getElementById('main').innerHTML = `<div class="gate-screen"><p>${msg}</p></div>`;
+}
+
+function renderGateError(msg) {
+  document.getElementById('main').innerHTML = `
+    <div class="gate-screen">
+      <span class="status-badge rejected">Erro de conexão</span>
+      <h2>Algo deu errado</h2>
+      <p>${msg}</p>
+      <button onclick="init()">Tentar novamente</button>
+    </div>`;
+}
+
+function renderEmailGate() {
+  document.getElementById('main').innerHTML = `
+    <div class="gate-screen">
+      <h2>Cadastro de acesso</h2>
+      <p>Informe seu e-mail para solicitar acesso ao simulado. Um administrador precisa aprovar seu cadastro antes que você possa começar.</p>
+      <div class="form-field">
+        <label for="emailInput">E-mail</label>
+        <input type="email" id="emailInput" placeholder="seuemail@exemplo.com" autocomplete="email">
+      </div>
+      <div class="error-msg" id="emailError">Informe um e-mail válido.</div>
+      <button class="success" onclick="submitEmailRequest()" style="padding:14px 32px; font-size:1.05rem;">Solicitar acesso</button>
+    </div>`;
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('infoLeft').textContent = 'Cadastro necessário';
+  document.getElementById('infoRight').textContent = '50 questões';
+}
+
+async function submitEmailRequest() {
+  const input = document.getElementById('emailInput');
+  const email = sanitizeEmail(input.value);
+  const errorEl = document.getElementById('emailError');
+
+  if (!isValidEmail(email)) {
+    errorEl.classList.add('show');
+    return;
+  }
+  errorEl.classList.remove('show');
+  localStorage.setItem(STORAGE_USER_EMAIL, email);
+
+  renderLoading('Enviando solicitação…');
+  try {
+    const docRef = db.collection(REQUESTS_COLLECTION).doc(email);
+    const snap = await docRef.get();
+    if (!snap.exists) {
+      await docRef.set({
+        email,
+        status: 'pending',
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    await checkStatus(email);
+  } catch (e) {
+    renderGateError('Não foi possível enviar sua solicitação. Tente novamente em instantes.');
+  }
+}
+
+function renderGateStatus(status, email) {
+  let badge = '', title = '', text = '', extraBtn = '';
+  if (status === 'pending') {
+    badge = '<span class="status-badge pending">Aguardando aprovação</span>';
+    title = 'Solicitação enviada';
+    text = `O e-mail <strong>${email}</strong> foi registrado e está aguardando a aprovação do administrador. Volte a esta página mais tarde para verificar se o acesso já foi liberado.`;
+    extraBtn = `<button class="secondary" onclick="checkAccessAgain()">Verificar novamente</button>`;
+  } else {
+    badge = '<span class="status-badge rejected">Acesso não liberado</span>';
+    title = 'Solicitação recusada';
+    text = `O acesso para <strong>${email}</strong> não foi liberado pelo administrador. Você pode tentar com outro e-mail.`;
+    extraBtn = `<button class="secondary" onclick="useAnotherEmail()">Usar outro e-mail</button>`;
+  }
+  document.getElementById('main').innerHTML = `
+    <div class="gate-screen">
+      ${badge}
+      <h2>${title}</h2>
+      <p>${text}</p>
+      ${extraBtn}
+    </div>`;
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('infoLeft').textContent = 'Aguardando liberação';
+  document.getElementById('infoRight').textContent = '50 questões';
+}
+
+function checkAccessAgain() { init(); }
+
+function useAnotherEmail() {
+  localStorage.removeItem(STORAGE_USER_EMAIL);
+  renderEmailGate();
+}
+
+/* ===================== ÁREA DO ADMINISTRADOR ===================== */
+// Login real via Firebase Authentication (e-mail + senha criados por você no
+// Firebase Console → Authentication → Users). A proteção de verdade não é essa
+// tela: é a regra do Firestore, que só aceita aprovações vindas de alguém
+// autenticado. Assim, ninguém consegue aprovar o próprio e-mail abrindo o
+// console do navegador e chamando a função diretamente.
+
+function openAdminLogin() {
+  if (auth.currentUser) { renderAdminPanel(); return; }
+  document.getElementById('main').innerHTML = `
+    <div class="gate-screen">
+      <h2>Área do administrador</h2>
+      <p>Entre com a conta de administrador cadastrada no Firebase.</p>
+      <div class="form-field">
+        <label for="adminEmail">E-mail</label>
+        <input type="email" id="adminEmail" placeholder="admin@seudominio.com" autocomplete="username">
+      </div>
+      <div class="form-field">
+        <label for="adminPass">Senha</label>
+        <input type="password" id="adminPass" placeholder="Senha" autocomplete="current-password" onkeydown="if(event.key==='Enter') adminLogin()">
+      </div>
+      <div class="error-msg" id="adminError">E-mail ou senha incorretos.</div>
+      <button onclick="adminLogin()" style="padding:14px 32px; font-size:1.05rem;">Entrar</button>
+      <br><br>
+      <button class="secondary" onclick="init()">Voltar</button>
+    </div>`;
+  document.getElementById('infoLeft').textContent = 'Área do administrador';
+  document.getElementById('infoRight').textContent = '';
+}
+
+async function adminLogin() {
+  const email = document.getElementById('adminEmail').value.trim();
+  const pass = document.getElementById('adminPass').value;
+  const errorEl = document.getElementById('adminError');
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+    errorEl.classList.remove('show');
+    renderAdminPanel();
+  } catch (e) {
+    errorEl.classList.add('show');
+  }
+}
+
+async function renderAdminPanel() {
+  renderLoading('Carregando solicitações…');
+  document.getElementById('infoLeft').textContent = 'Área do administrador';
+
+  let all = [];
+  try {
+    const snap = await db.collection(REQUESTS_COLLECTION).get();
+    snap.forEach(doc => all.push(doc.data()));
+  } catch (e) {
+    renderGateError('Não foi possível carregar as solicitações. Verifique sua conexão e as regras do Firestore.');
+    return;
+  }
+
+  const pending = all.filter(r => r.status === 'pending');
+  const approved = all.filter(r => r.status === 'approved');
+
+  let pendingRows = pending.map(r => `
+    <tr>
+      <td>${r.email}</td>
+      <td class="admin-actions">
+        <button class="success" onclick="approveEmail('${r.email}')">Aprovar</button>
+        <button class="secondary" onclick="rejectEmail('${r.email}')">Recusar</button>
+      </td>
+    </tr>`).join('');
+  if (!pending.length) pendingRows = `<tr><td colspan="2" class="admin-empty">Nenhuma solicitação pendente.</td></tr>`;
+
+  let approvedRows = approved.map(r => `
+    <tr>
+      <td>${r.email}</td>
+      <td class="admin-actions">
+        <button class="secondary" onclick="revokeEmail('${r.email}')">Revogar acesso</button>
+      </td>
+    </tr>`).join('');
+  if (!approved.length) approvedRows = `<tr><td colspan="2" class="admin-empty">Nenhum e-mail aprovado ainda.</td></tr>`;
+
+  document.getElementById('main').innerHTML = `
+    <div class="gate-screen" style="text-align:left; max-width:700px; margin:0 auto;">
+      <h2 style="text-align:center;">Painel do administrador</h2>
+      <h3 style="color:#0d2a52; margin:22px 0 8px;">Solicitações pendentes</h3>
+      <table class="admin-table">
+        <thead><tr><th>E-mail</th><th>Ação</th></tr></thead>
+        <tbody>${pendingRows}</tbody>
+      </table>
+      <h3 style="color:#0d2a52; margin:22px 0 8px;">Acessos aprovados</h3>
+      <table class="admin-table">
+        <thead><tr><th>E-mail</th><th>Ação</th></tr></thead>
+        <tbody>${approvedRows}</tbody>
+      </table>
+      <div style="text-align:center; margin-top:20px;">
+        <button class="secondary" onclick="init()">Voltar ao simulado</button>
+        <button class="secondary" onclick="adminLogout()">Sair da conta</button>
+      </div>
+    </div>`;
+  document.getElementById('infoRight').textContent = `${pending.length} pendente(s) • ${approved.length} aprovado(s)`;
+}
+
+async function adminLogout() {
+  await auth.signOut();
+  init();
+}
+
+async function approveEmail(email) {
+  await db.collection(REQUESTS_COLLECTION).doc(email).update({ status: 'approved' });
+  renderAdminPanel();
+}
+
+async function rejectEmail(email) {
+  await db.collection(REQUESTS_COLLECTION).doc(email).update({ status: 'rejected' });
+  renderAdminPanel();
+}
+
+async function revokeEmail(email) {
+  await db.collection(REQUESTS_COLLECTION).doc(email).update({ status: 'pending' });
+  renderAdminPanel();
+}
+
+/* ===================== TELA INICIAL DO SIMULADO ===================== */
+
+function renderStart() {
+  document.getElementById('main').innerHTML = `
+    <div class="start-screen">
+      <h2>Bem-vindo(a) ao Simulado!</h2>
+      <p>Teste seus conhecimentos com <strong>50 questões contextualizadas</strong>, voltadas para concursos públicos com foco no ECA (Lei 8.069/1990).</p>
+      <ul>
+        <li>📖 <strong>Textos de apoio detalhados</strong> (leis, teorias e situações-problema)</li>
+        <li>🎯 Questões de múltipla escolha (A a E)</li>
+        <li>💡 Feedback explicativo ao final de cada questão</li>
+        <li>📊 Resultado final com revisão detalhada de todas as questões</li>
+      </ul>
+      <button class="success" onclick="startQuiz()" style="margin-top:20px; padding:14px 32px; font-size:1.1rem;">Iniciar Simulado</button>
+    </div>`;
+  document.getElementById('progressBar').style.width = '0%';
+  document.getElementById('infoLeft').textContent = 'Aguardando início';
+  document.getElementById('infoRight').textContent = '50 questões';
+}
+
+function startQuiz() {
+  current = 0;
+  answers = new Array(Q.length).fill(null);
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = Q[current];
+  const total = Q.length;
+  const answered = answers.filter(a => a !== null).length;
+  const correct = answers.filter((a, i) => a === Q[i].a).length;
+
+  document.getElementById('progressBar').style.width = ((current + 1) / total * 100) + '%';
+  document.getElementById('infoLeft').textContent = `Questão ${current + 1} de ${total}`;
+  document.getElementById('infoRight').textContent = `Acertos: ${correct} | Respondidas: ${answered}`;
+
+  let optionsHtml = '';
+  q.o.forEach((opt, i) => {
+    const letter = String.fromCharCode(65 + i);
+    const checked = answers[current] === i ? 'checked' : '';
+    const selectedClass = answers[current] === i ? 'selected' : '';
+    optionsHtml += `<li class="${selectedClass}" onclick="selectOption(${i})">
+      <input type="radio" name="q${current}" id="opt${i}" ${checked}>
+      <label for="opt${i}"><strong>${letter})</strong> ${opt}</label>
+    </li>`;
+  });
+
+  document.getElementById('main').innerHTML = `
+    <div class="question-card active">
+      <span class="q-number">Questão ${current + 1}</span>
+      <div class="q-context">${q.c}</div>
+      <div class="q-text">${q.t}</div>
+      <ul class="options">${optionsHtml}</ul>
+      <div class="nav-buttons">
+        <button class="secondary" onclick="prevQuestion()" ${current === 0 ? 'disabled' : ''}>← Anterior</button>
+        <button onclick="confirmAnswer()" ${answers[current] === null ? 'disabled' : ''}>Confirmar Resposta</button>
+        ${current === total - 1 ? 
+          `<button class="success" onclick="finishQuiz()">Finalizar Simulado</button>` : 
+          `<button onclick="nextQuestion()">Próxima →</button>`
+        }
+      </div>
+    </div>`;
+}
+
+function selectOption(i) {
+  answers[current] = i;
+  renderQuestion();
+}
+
+function confirmAnswer() {
+  const q = Q[current];
+  const userAnswer = answers[current];
+  const isCorrect = userAnswer === q.a;
+
+  const options = document.querySelectorAll('.options li');
+  options.forEach((li, i) => {
+    li.classList.remove('selected');
+    if (i === q.a) li.classList.add('correct');
+    if (i === userAnswer && !isCorrect) li.classList.add('wrong');
+  });
+
+  const feedbackDiv = document.createElement('div');
+  feedbackDiv.className = `feedback show ${isCorrect ? 'ok' : 'no'}`;
+  feedbackDiv.innerHTML = `<strong>${isCorrect ? '✓ Resposta correta!' : '✗ Resposta incorreta.'}</strong><br>${q.e}`;
+  document.querySelector('.question-card').appendChild(feedbackDiv);
+  document.querySelector('button[onclick="confirmAnswer()"]').disabled = true;
+}
+
+function nextQuestion() { if (current < Q.length - 1) { current++; renderQuestion(); } }
+function prevQuestion() { if (current > 0) { current--; renderQuestion(); } }
+
+function finishQuiz() {
+  const total = Q.length;
+  const correct = answers.filter((a, i) => a === Q[i].a).length;
+  const percentage = Math.round((correct / total) * 100);
+
+  let reviewHtml = '';
+  Q.forEach((q, i) => {
+    const userAns = answers[i];
+    const isCorrect = userAns === q.a;
+    const userLetter = userAns !== null ? String.fromCharCode(65 + userAns) : 'Não respondida';
+    const correctLetter = String.fromCharCode(65 + q.a);
+    reviewHtml += `<div class="review-item ${isCorrect ? 'ok' : 'no'}">
+      <strong>Questão ${i + 1}:</strong> ${isCorrect ? '✓ Correta' : '✗ Incorreta'}<br>
+      <small>Sua resposta: ${userLetter} | Correta: ${correctLetter}</small>
+    </div>`;
+  });
+
+  let message = '';
+  if (percentage >= 80) message = '🎉 Excelente! Você está muito bem preparado(a)!';
+  else if (percentage >= 60) message = '👍 Bom desempenho! Continue estudando!';
+  else if (percentage >= 40) message = '📚 Razoável. Revise os conteúdos e pratique mais!';
+  else message = '💪 Não desanime! Revise os conteúdos e continue praticando!';
+
+  document.getElementById('main').innerHTML = `
+    <div class="result-screen">
+      <h2>Resultado Final</h2>
+      <div class="score-big">${correct}/${total}</div>
+      <div class="score-bar"><div class="score-fill" style="width: ${percentage}%"></div></div>
+      <p style="font-size: 1.1rem; margin-bottom: 10px;"><strong>${percentage}% de acertos</strong></p>
+      <p style="color: #555; margin-bottom: 20px;">${message}</p>
+      <div class="review-list">
+        <h3 style="margin-bottom: 12px; color: #0d2a52;">Revisão das Questões:</h3>
+        ${reviewHtml}
+      </div>
+      <button class="success" onclick="startQuiz()" style="margin-right:10px;">Refazer Simulado</button>
+      <button class="secondary" onclick="renderStart()">Voltar ao Início</button>
+    </div>`;
+  document.getElementById('progressBar').style.width = '100%';
+  document.getElementById('infoLeft').textContent = 'Simulado finalizado';
+  document.getElementById('infoRight').textContent = `${correct} acertos de ${total}`;
+}
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(console.error);
+  });
+}
+
+init();
+</script>
+</body>
+</html>
